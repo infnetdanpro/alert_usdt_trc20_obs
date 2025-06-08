@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<title>USDT TRC20 Alert notifier for OBS (open broadcast studio)</title>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+	<style>
+	* {
+		box-sizing: border-box;
+	}
+
+	body {
+		font-family: 'Raleway', sans-serif;
+	}
+
+	header.header {
+		position: absolute;
+		left: 0;
+		width: 100%;
+	}
+
+	header.header h1 {
+		font-size: 8rem;
+		text-align: center;
+		margin-top: 0;
+		font-weight: 900;
+	}
+	</style>
+</head>
+
+<body>
+	<header class="header">
+		<h1 class="glitched"></h1>
+	</header>
+	<script>
+	$(document).ready(function() {
+		// 1748782800000
+		const start_ts = new Date().getTime();
+		// const start_ts = 1748782800000;
+		const show_text_time = 12000; // как долго показывать текст о пополнении
+		const wallet_address = "put_here_your_wallet"; // <----------- HERE YOUR USDT_TRC20 WALLET! // 
+		let notified_hashes = new Array();
+		let last_transactions = new Array();
+		audioObj = new Audio("coin.mp3");
+		let task = null;
+
+		function request_notifications() {
+			if(wallet_address == 'put_here_your_wallet') {
+				const error = "Change your wallet address!";
+				$("h1.glitched").text(error).show();
+				console.log(error);
+				alert(error);
+			}
+			$.ajax({
+				method: "GET",
+				url: `https://apilist.tronscanapi.com/api/token_trc20/transfers?limit=10&start_timestamp=${start_ts}&filterTokenValue=0&toAddress=${wallet_address}`,
+				success: (response) => {
+					console.log(response);
+					for(let i = 0; i < response.token_transfers.length; i++) {
+						let transaction = response.token_transfers[i]
+						if(transaction.finalResult == 'SUCCESS' && !notified_hashes.includes(transaction.transaction_id)) {
+							let sum = transaction.quant / 1000000; // because results we need cut 6 last digits
+							notified_hashes.push(transaction.transaction_id);
+							// показать нотификацию
+							$("h1.glitched").text(`New donation +${sum} USDT`).show();
+							audioObj.play();
+							if(task !== null) {
+								clearTimeout(task);
+								task = null;
+							}
+							task = setTimeout(() => {
+								$("h1.glitched").hide();
+								audioObj.pause();
+								audioObj.currentTime = 0;
+							}, show_text_time);
+						}
+					}
+					console.log("notified_hashes", notified_hashes);
+				},
+			});
+		}
+		request_notifications();
+		let timer = setInterval(request_notifications, 10000);
+	});
+	</script>
+</body>
+
+</html>
