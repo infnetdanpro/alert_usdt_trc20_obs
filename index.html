@@ -89,7 +89,7 @@
               !notifiedTxs.has(tx.transaction_id)
             ) {
               const amount = tx.quant / 1e6;
-              // notifiedTxs.add(tx.transaction_id);
+              notifiedTxs.add(tx.transaction_id);
               showNotification(amount);
             }
           });
