@@ -1,88 +1,107 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-	<title>USDT TRC20 Alert notifier for OBS (open broadcast studio)</title>
-	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-	<style>
-	* {
-		box-sizing: border-box;
-	}
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>USDT TRC20 Alert Notifier for OBS</title>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-	body {
-		font-family: 'Raleway', sans-serif;
-	}
+    body {
+      font-family: 'Raleway', sans-serif;
+      background: #000;
+      color: #fff;
+    }
 
-	header.header {
-		position: absolute;
-		left: 0;
-		width: 100%;
-	}
-
-	header.header h1 {
-		font-size: 8rem;
-		text-align: center;
-		margin-top: 0;
-		font-weight: 900;
-	}
-	</style>
+    header {
+      position: absolute;
+      top: 0;
+      width: 100%;
+      text-align: center;
+    }
+    p.header {
+      display: none;
+    }
+    h1.glitched {
+      font-size: 5rem;
+      font-weight: 900;
+      display: none;
+    }
+  </style>
 </head>
 
 <body>
-	<header class="header">
-		<h1 class="glitched"></h1>
-	</header>
-	<script>
-	$(document).ready(function() {
-		// 1748782800000
-		const start_ts = new Date().getTime();
-		// const start_ts = 1748782800000;
-		const show_text_time = 12000; // как долго показывать текст о пополнении
-		const wallet_address = "put_here_your_wallet"; // <----------- HERE YOUR USDT_TRC20 WALLET! // 
-		let notified_hashes = new Array();
-		let last_transactions = new Array();
-		audioObj = new Audio("coin.mp3");
-		let task = null;
+  <header>
+    <p class="header"><img src="alert_animation.gif"></p>
+    <h1 class="glitched"></h1>
+  </header>
 
-		function request_notifications() {
-			if(wallet_address == 'put_here_your_wallet') {
-				const error = "Change your wallet address!";
-				$("h1.glitched").text(error).show();
-				console.log(error);
-				alert(error);
-			}
-			$.ajax({
-				method: "GET",
-				url: `https://apilist.tronscanapi.com/api/token_trc20/transfers?limit=10&start_timestamp=${start_ts}&filterTokenValue=0&toAddress=${wallet_address}`,
-				success: (response) => {
-					console.log(response);
-					for(let i = 0; i < response.token_transfers.length; i++) {
-						let transaction = response.token_transfers[i]
-						if(transaction.finalResult == 'SUCCESS' && !notified_hashes.includes(transaction.transaction_id)) {
-							let sum = transaction.quant / 1000000; // because results we need cut 6 last digits
-							notified_hashes.push(transaction.transaction_id);
-							// показать нотификацию
-							$("h1.glitched").text(`New donation +${sum} USDT`).show();
-							audioObj.play();
-							if(task !== null) {
-								clearTimeout(task);
-								task = null;
-							}
-							task = setTimeout(() => {
-								$("h1.glitched").hide();
-								audioObj.pause();
-								audioObj.currentTime = 0;
-							}, show_text_time);
-						}
-					}
-					console.log("notified_hashes", notified_hashes);
-				},
-			});
-		}
-		request_notifications();
-		let timer = setInterval(request_notifications, 10000);
-	});
-	</script>
+  <script>
+    $(() => {
+      const walletAddress = "put_here_your_wallet"; // <------ CHANGE THIS!
+      const startTimestamp = Date.now();
+      const showDuration = 12000; // Duration to show alert (in ms)
+      const apiUrl = "https://apilist.tronscanapi.com/api/token_trc20/transfers";
+      const audio = new Audio("coin.mp3");
+
+      let notifiedTxs = new Set();
+      let hideTask = null;
+
+      function showNotification(amount) {
+        $(".glitched").text(`New donation +${amount} USDT`).fadeIn();
+        $("p.header").fadeIn();
+        audio.play();
+
+        clearTimeout(hideTask);
+        hideTask = setTimeout(() => {
+          $(".glitched").fadeOut();
+          $("p.header").fadeOut();
+          audio.pause();
+          audio.currentTime = 0;
+        }, showDuration);
+      }
+
+      function fetchTransactions() {
+        if (walletAddress === "put_here_your_wallet") {
+          const msg = "Change your wallet address!";
+          $(".glitched").text(msg).show();
+          console.error(msg);
+          alert(msg);
+          return;
+        }
+
+        $.get(apiUrl, {
+          limit: 10,
+          start_timestamp: startTimestamp,
+          filterTokenValue: 0,
+          toAddress: walletAddress
+        }).done(response => {
+          if (!response?.token_transfers) return;
+
+          response.token_transfers.forEach(tx => {
+            if (
+              tx.finalResult === "SUCCESS" &&
+              !notifiedTxs.has(tx.transaction_id)
+            ) {
+              const amount = tx.quant / 1e6;
+              // notifiedTxs.add(tx.transaction_id);
+              showNotification(amount);
+            }
+          });
+        }).fail(err => {
+          console.error("API request failed:", err);
+        });
+      }
+
+      // Initial fetch and interval
+      fetchTransactions();
+      setInterval(fetchTransactions, 20000);
+    });
+  </script>
 </body>
-
 </html>
